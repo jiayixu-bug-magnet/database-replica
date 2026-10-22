@@ -1,39 +1,18 @@
-"""Show student names and skill averages from the class database.
+"""Show student names from the placeholder CSV database.
 
-The browser asks for /. This file asks Postgres for the names and the four
-skill averages, then fills in templates/index.html and sends that page back.
+The browser asks for /. This file reads database/students.csv, then fills
+in templates/index.html and sends that page back. That folder stands in
+for Postgres until the real database is connected.
 """
 
-import os
+import csv
 from pathlib import Path
 
-import psycopg2
 from flask import Flask, render_template
 
 ROOT = Path(__file__).resolve().parent
+STUDENTS_CSV = ROOT / "database" / "students.csv"
 app = Flask(__name__)
-
-
-def database_url():
-    """Read DATABASE_URL from the environment, then from .env."""
-    url = os.environ.get("DATABASE_URL")
-    if url:
-        return url
-
-    env_path = ROOT / ".env"
-    if not env_path.exists():
-        raise RuntimeError("DATABASE_URL is not set and .env is missing")
-
-    for line in env_path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        if key.strip() == "DATABASE_URL":
-            return value.strip().strip('"').strip("'")
-
-    raise RuntimeError("DATABASE_URL is not set in .env")
-
 
 SKILLS = (
     ("Programming", "skill_programming"),
@@ -44,19 +23,18 @@ SKILLS = (
 
 
 def roster():
-    averages_sql = ", ".join(
-        f"ROUND(AVG({column})::numeric, 2)" for _, column in SKILLS
-    )
-    with psycopg2.connect(database_url()) as conn:
-        with conn.cursor() as cursor:
-            cursor.execute("SELECT name FROM students ORDER BY name")
-            names = [row[0] for row in cursor.fetchall()]
-            cursor.execute(f"SELECT {averages_sql} FROM students")
-            row = cursor.fetchone()
-    averages = [
-        {"label": label, "value": value}
-        for (label, _), value in zip(SKILLS, row)
-    ]
+    if not STUDENTS_CSV.exists():
+        raise FileNotFoundError(STUDENTS_CSV)
+
+    with STUDENTS_CSV.open(newline="", encoding="utf-8") as csv_file:
+        rows = list(csv.DictReader(csv_file))
+
+    names = sorted(row["name"] for row in rows)
+    averages = []
+    for label, column in SKILLS:
+        ratings = [int(row[column]) for row in rows]
+        value = round(sum(ratings) / len(ratings), 2) if ratings else None
+        averages.append({"label": label, "value": value})
     return names, averages
 
 
@@ -70,5 +48,7 @@ def index():
 
 
 if __name__ == "__main__":
+    import os
+
     port = int(os.environ.get("PORT", "5741"))
     app.run(host="0.0.0.0", port=port)

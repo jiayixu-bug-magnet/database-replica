@@ -67,9 +67,9 @@
 <body>
   <main>
     <h1>Class roster</h1>
-    <p>These names come from the students table. The averages are the mean of each skill rating, from 1 to 5.</p>
+    <p>These names come from database/students.csv, the placeholder for the students table. The averages are the mean of each skill rating, from 1 to 5.</p>
     {% if error %}
-      <p class="error">The database did not answer. Check that Postgres is running and DATABASE_URL is set.</p>
+      <p class="error">The placeholder file database/students.csv could not be read.</p>
     {% elif names %}
       <ul class="averages">
         {% for average in averages %}
