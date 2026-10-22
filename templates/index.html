@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Class roster</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      background: #f4f1ea;
+      color: #1c1915;
+    }
+    main {
+      max-width: 36rem;
+      margin: 0 auto;
+      padding: 2.5rem 1.25rem 4rem;
+    }
+    h1 {
+      font-size: 2rem;
+      margin-bottom: 0.25rem;
+    }
+    p {
+      color: #4a453c;
+    }
+    ol {
+      padding-left: 1.25rem;
+    }
+    li {
+      margin: 0.35rem 0;
+      font-size: 1.15rem;
+    }
+    button {
+      font: inherit;
+      padding: 0.4rem 0.8rem;
+      cursor: pointer;
+    }
+    .error {
+      padding: 0.75rem 1rem;
+      background: #f8e4e0;
+      border: 1px solid #b4483a;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Class roster</h1>
+    <p>These names come from the students table.</p>
+    {% if error %}
+      <p class="error">The database did not answer. Check that Postgres is running and DATABASE_URL is set.</p>
+    {% elif names %}
+      <button type="button" id="shuffle">Shuffle</button>
+      <ol id="names">
+        {% for name in names %}
+          <li>{{ name }}</li>
+        {% endfor %}
+      </ol>
+    {% else %}
+      <p>No students are loaded yet.</p>
+    {% endif %}
+  </main>
+  <script>
+    const button = document.getElementById("shuffle");
+    if (button) {
+      button.addEventListener("click", () => {
+        const list = document.getElementById("names");
+        const items = Array.from(list.children);
+        for (let i = items.length - 1; i > 0; i -= 1) {
+          const j = Math.floor(Math.random() * (i + 1));
+          const swap = items[i];
+          items[i] = items[j];
+          items[j] = swap;
+        }
+        items.forEach((item) => list.appendChild(item));
+      });
+    }
+  </script>
+</body>
+</html>
