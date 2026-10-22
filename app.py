@@ -1,7 +1,7 @@
-"""Show student names from the class database.
+"""Show student names and skill averages from the class database.
 
-The browser asks for /. This file asks Postgres for the names, then fills
-in templates/index.html and sends that page back.
+The browser asks for /. This file asks Postgres for the names and the four
+skill averages, then fills in templates/index.html and sends that page back.
 """
 
 import os
@@ -35,20 +35,38 @@ def database_url():
     raise RuntimeError("DATABASE_URL is not set in .env")
 
 
-def student_names():
+SKILLS = (
+    ("Programming", "skill_programming"),
+    ("Data and statistics", "skill_data_stats"),
+    ("Frontend design", "skill_frontend_design"),
+    ("Business pitch", "skill_business_pitch"),
+)
+
+
+def roster():
+    averages_sql = ", ".join(
+        f"ROUND(AVG({column})::numeric, 2)" for _, column in SKILLS
+    )
     with psycopg2.connect(database_url()) as conn:
         with conn.cursor() as cursor:
             cursor.execute("SELECT name FROM students ORDER BY name")
-            return [row[0] for row in cursor.fetchall()]
+            names = [row[0] for row in cursor.fetchall()]
+            cursor.execute(f"SELECT {averages_sql} FROM students")
+            row = cursor.fetchone()
+    averages = [
+        {"label": label, "value": value}
+        for (label, _), value in zip(SKILLS, row)
+    ]
+    return names, averages
 
 
 @app.get("/")
 def index():
     try:
-        names = student_names()
+        names, averages = roster()
     except Exception:
-        return render_template("index.html", names=[], error=True), 500
-    return render_template("index.html", names=names, error=False)
+        return render_template("index.html", names=[], averages=[], error=True), 500
+    return render_template("index.html", names=names, averages=averages, error=False)
 
 
 if __name__ == "__main__":

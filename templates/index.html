@@ -35,6 +35,28 @@
       padding: 0.4rem 0.8rem;
       cursor: pointer;
     }
+    .averages {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+      margin: 1.25rem 0 1.5rem;
+      padding: 0;
+      list-style: none;
+    }
+    .averages li {
+      margin: 0;
+      padding: 0.75rem 0.9rem;
+      background: #fff;
+      border: 1px solid #ddd4c4;
+    }
+    .averages span {
+      display: block;
+      font-size: 0.9rem;
+      color: #4a453c;
+    }
+    .averages strong {
+      font-size: 1.5rem;
+    }
     .error {
       padding: 0.75rem 1rem;
       background: #f8e4e0;
@@ -45,10 +67,18 @@
 <body>
   <main>
     <h1>Class roster</h1>
-    <p>These names come from the students table.</p>
+    <p>These names come from the students table. The averages are the mean of each skill rating, from 1 to 5.</p>
     {% if error %}
       <p class="error">The database did not answer. Check that Postgres is running and DATABASE_URL is set.</p>
     {% elif names %}
+      <ul class="averages">
+        {% for average in averages %}
+          <li>
+            <span>{{ average.label }}</span>
+            <strong>{{ average.value }}</strong>
+          </li>
+        {% endfor %}
+      </ul>
       <button type="button" id="shuffle">Shuffle</button>
       <ol id="names">
         {% for name in names %}
