@@ -30,6 +30,10 @@
       margin: 0.35rem 0;
       font-size: 1.15rem;
     }
+    .year {
+      color: #4a453c;
+      font-size: 0.95rem;
+    }
     button {
       font: inherit;
       padding: 0.4rem 0.8rem;
@@ -67,10 +71,10 @@
 <body>
   <main>
     <h1>Class roster</h1>
-    <p>These names come from database/students.csv, the placeholder for the students table. The averages are the mean of each skill rating, from 1 to 5.</p>
+    <p>These names come from the students table. The averages are the mean of each skill rating, from 1 to 5.</p>
     {% if error %}
-      <p class="error">The placeholder file database/students.csv could not be read.</p>
-    {% elif names %}
+      <p class="error">The database did not answer. Check that it is running and the placeholder tables in database/ are present.</p>
+    {% elif students %}
       <ul class="averages">
         {% for average in averages %}
           <li>
@@ -81,8 +85,8 @@
       </ul>
       <button type="button" id="shuffle">Shuffle</button>
       <ol id="names">
-        {% for name in names %}
-          <li>{{ name }}</li>
+        {% for student in students %}
+          <li>{{ student.name }} <span class="year">{{ student.year }}</span></li>
         {% endfor %}
       </ol>
     {% else %}
