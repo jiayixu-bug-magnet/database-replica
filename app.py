@@ -11,11 +11,17 @@ local SQLite database and the same queries run there.
 import csv
 import os
 import sqlite3
+import sys
 from pathlib import Path
 
 from flask import Flask, render_template
 
 ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / "model"))
+
+from assignment_rules import assign_groups
+from cluster_model import CENTROIDS
+
 DATABASE_DIR = ROOT / "database"
 app = Flask(__name__)
 
@@ -191,6 +197,92 @@ def roster():
         conn.close()
 
 
+def students_for_groups(cursor):
+    cursor.execute(
+        """
+        SELECT netid, name, skill_programming, skill_data_stats,
+               skill_frontend_design, skill_business_pitch
+        FROM students
+        ORDER BY name
+        """
+    )
+    students = []
+    names = {}
+    for netid, name, programming, data_stats, frontend, pitch in cursor.fetchall():
+        students.append(
+            {
+                "id": netid,
+                "skill_programming": int(programming),
+                "skill_data_stats": int(data_stats),
+                "skill_frontend_design": int(frontend),
+                "skill_business_pitch": int(pitch),
+            }
+        )
+        names[netid] = name
+    return students, names
+
+
+def build_groups(cursor):
+    students, names = students_for_groups(cursor)
+    assigned = assign_groups(students)
+    present_clusters = sorted({student["cluster"] for student in assigned})
+    groups = []
+    missing = 0
+    for group_number in range(1, 9):
+        members = [student for student in assigned if student["group"] == group_number]
+        counts = {str(cluster): 0 for cluster in present_clusters}
+        for student in members:
+            counts[str(student["cluster"])] += 1
+        if any(count == 0 for count in counts.values()):
+            missing += 1
+        groups.append(
+            {
+                "group": group_number,
+                "members": [names[student["id"]] for student in members],
+                "cluster_counts": counts,
+            }
+        )
+
+    sizes = {cluster: 0 for cluster in present_clusters}
+    for student in assigned:
+        sizes[student["cluster"]] += 1
+    clusters = [
+        {
+            "cluster": cluster,
+            "students": sizes[cluster],
+            "centroid": list(CENTROIDS[cluster]),
+        }
+        for cluster in present_clusters
+    ]
+    return {
+        "n_groups": 8,
+        "groups": groups,
+        "clusters": clusters,
+        "groups_missing_a_cluster": missing,
+    }
+
+
+def groups_from_database():
+    url = database_url()
+    if url and url.startswith("postgres"):
+        try:
+            import psycopg2
+
+            with psycopg2.connect(url, connect_timeout=3) as conn:
+                with conn.cursor() as cursor:
+                    return build_groups(cursor)
+        except Exception:
+            local = "localhost" in url or "127.0.0.1" in url
+            if not local:
+                raise
+
+    conn = placeholder_database()
+    try:
+        return build_groups(conn.cursor())
+    finally:
+        conn.close()
+
+
 @app.get("/")
 def index():
     try:
@@ -198,6 +290,14 @@ def index():
     except Exception:
         return render_template("index.html", students=[], averages=[], error=True), 500
     return render_template("index.html", students=students, averages=averages, error=False)
+
+
+@app.get("/api/groups")
+def api_groups():
+    try:
+        return groups_from_database()
+    except Exception:
+        return {"error": "Could not build groups"}, 500
 
 
 if __name__ == "__main__":
