@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project groups</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      background: #f4f1ea;
+      color: #1c1915;
+    }
+    main {
+      max-width: 64rem;
+      margin: 0 auto;
+      padding: 2rem 1.25rem 4rem;
+    }
+    h1 {
+      font-size: 2rem;
+      margin: 0 0 0.25rem;
+    }
+    .intro,
+    a {
+      color: #4a453c;
+    }
+    .intro {
+      margin-top: 0;
+    }
+    form {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin: 1rem 0;
+    }
+    label {
+      font-size: 1rem;
+    }
+    input {
+      font: inherit;
+      width: 4.5rem;
+      padding: 0.3rem 0.4rem;
+    }
+    #summary {
+      margin: 0 0 1rem;
+      font-size: 1.15rem;
+    }
+    #cards {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.75rem;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #ddd4c4;
+      padding: 0.85rem 0.95rem 1rem;
+    }
+    h2 {
+      margin: 0;
+      font-size: 1.25rem;
+    }
+    .size {
+      margin: 0.15rem 0 0.6rem;
+      color: #4a453c;
+    }
+    ul {
+      margin: 0;
+      padding-left: 1.1rem;
+    }
+    li {
+      margin: 0.2rem 0;
+    }
+    .mix {
+      margin: 0.75rem 0 0;
+      color: #4a453c;
+      font-size: 0.85rem;
+    }
+    .error {
+      padding: 0.75rem 1rem;
+      background: #f8e4e0;
+      border: 1px solid #b4483a;
+    }
+    @media (min-width: 960px) {
+      #cards {
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Project groups</h1>
+    <p class="intro">Who is in each group, and whether the group mixes different kinds of students. <a href="/">Back to the roster</a></p>
+    <form>
+      <label for="group-count">Number of groups</label>
+      <input id="group-count" type="number" min="1" max="30" value="8">
+    </form>
+    <p id="summary"></p>
+    <section id="cards"></section>
+  </main>
+  <script>
+    function render(data) {
+      const summary = document.getElementById("summary");
+      const missing = data.groups_missing_a_cluster;
+      const missingText = missing === 1
+        ? "1 is missing a kind of student"
+        : missing + " are missing a kind of student";
+      summary.textContent = data.n_groups + " groups. " + missingText + ".";
+
+      const cards = document.getElementById("cards");
+      cards.replaceChildren();
+      for (const group of data.groups) {
+        const card = document.createElement("article");
+        card.className = "card";
+
+        const title = document.createElement("h2");
+        title.textContent = "Group " + group.group;
+
+        const size = document.createElement("p");
+        size.className = "size";
+        const count = group.members.length;
+        size.textContent = count === 1 ? "1 student" : count + " students";
+
+        const list = document.createElement("ul");
+        for (const name of group.members) {
+          const item = document.createElement("li");
+          item.textContent = name;
+          list.appendChild(item);
+        }
+
+        const mix = document.createElement("p");
+        mix.className = "mix";
+        const kinds = Object.keys(group.cluster_counts).sort((a, b) => a - b);
+        mix.textContent = kinds
+          .map((kind) => "Kind " + kind + ": " + group.cluster_counts[kind])
+          .join(" · ");
+
+        card.append(title, size, list, mix);
+        cards.appendChild(card);
+      }
+    }
+
+    function showError(message) {
+      const summary = document.getElementById("summary");
+      summary.textContent = "";
+      summary.className = "error";
+      summary.textContent = message;
+      document.getElementById("cards").replaceChildren();
+    }
+
+    const input = document.getElementById("group-count");
+
+    async function loadGroups() {
+      const count = Number(input.value);
+      if (!Number.isInteger(count) || count < 1 || count > 30) {
+        showError("Enter a number of groups from 1 to 30.");
+        return;
+      }
+      const summary = document.getElementById("summary");
+      summary.className = "";
+      summary.textContent = "Making groups…";
+      try {
+        const response = await fetch("/api/groups?n_groups=" + count);
+        const data = await response.json();
+        if (!response.ok) {
+          showError(data.error || "The groups could not be loaded.");
+          return;
+        }
+        render(data);
+      } catch (error) {
+        showError("The groups could not be loaded.");
+      }
+    }
+
+    input.addEventListener("change", loadGroups);
+    document.querySelector("form").addEventListener("submit", (event) => {
+      event.preventDefault();
+      loadGroups();
+    });
+    loadGroups();
+  </script>
+</body>
+</html>

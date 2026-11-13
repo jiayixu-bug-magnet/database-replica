@@ -14,7 +14,7 @@ import sqlite3
 import sys
 from pathlib import Path
 
-from flask import Flask, render_template
+from flask import Flask, render_template, request
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "model"))
@@ -222,13 +222,13 @@ def students_for_groups(cursor):
     return students, names
 
 
-def build_groups(cursor):
+def build_groups(cursor, n_groups=8):
     students, names = students_for_groups(cursor)
-    assigned = assign_groups(students)
+    assigned = assign_groups(students, n_groups=n_groups)
     present_clusters = sorted({student["cluster"] for student in assigned})
     groups = []
     missing = 0
-    for group_number in range(1, 9):
+    for group_number in range(1, n_groups + 1):
         members = [student for student in assigned if student["group"] == group_number]
         counts = {str(cluster): 0 for cluster in present_clusters}
         for student in members:
@@ -255,14 +255,14 @@ def build_groups(cursor):
         for cluster in present_clusters
     ]
     return {
-        "n_groups": 8,
+        "n_groups": n_groups,
         "groups": groups,
         "clusters": clusters,
         "groups_missing_a_cluster": missing,
     }
 
 
-def groups_from_database():
+def groups_from_database(n_groups=8):
     url = database_url()
     if url and url.startswith("postgres"):
         try:
@@ -270,7 +270,7 @@ def groups_from_database():
 
             with psycopg2.connect(url, connect_timeout=3) as conn:
                 with conn.cursor() as cursor:
-                    return build_groups(cursor)
+                    return build_groups(cursor, n_groups)
         except Exception:
             local = "localhost" in url or "127.0.0.1" in url
             if not local:
@@ -278,9 +278,22 @@ def groups_from_database():
 
     conn = placeholder_database()
     try:
-        return build_groups(conn.cursor())
+        return build_groups(conn.cursor(), n_groups)
     finally:
         conn.close()
+
+
+def requested_group_count():
+    raw = request.args.get("n_groups")
+    if raw is None or raw == "":
+        return 8
+    try:
+        n_groups = int(raw)
+    except ValueError:
+        raise ValueError("n_groups must be a whole number") from None
+    if n_groups < 1 or n_groups > 30:
+        raise ValueError("n_groups must be from 1 to 30")
+    return n_groups
 
 
 @app.get("/")
@@ -292,10 +305,17 @@ def index():
     return render_template("index.html", students=students, averages=averages, error=False)
 
 
+@app.get("/groups")
+def groups_page():
+    return render_template("groups.html")
+
+
 @app.get("/api/groups")
 def api_groups():
     try:
-        return groups_from_database()
+        return groups_from_database(requested_group_count())
+    except ValueError as error:
+        return {"error": str(error)}, 400
     except Exception:
         return {"error": "Could not build groups"}, 500
 
