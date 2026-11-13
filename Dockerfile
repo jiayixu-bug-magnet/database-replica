@@ -5,6 +5,9 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY app.py .
+COPY templates/ templates/
+COPY database/ database/
+COPY model/ model/
 
 CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:${PORT:-5741} app:app"]
